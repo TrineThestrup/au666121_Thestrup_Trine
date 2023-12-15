@@ -1,0 +1,158 @@
+---
+title: "Abortdata Weeks"
+output: html_document
+date: "2023-10-30"
+author: "Trine Thestrup Larsen and Mathilde Halberg Nielsen"
+---
+
+# Loading the packages we know we will need 
+```{r}
+
+library(tidyverse)
+
+library(readxl)
+
+library(janitor)
+
+```
+
+#Loading the data 
+We load the data the same way we did with the other datasets 
+
+```{r}
+
+Abortdata_kopi <- read_excel("data/Abortdata-kopi.xlsx", 
+    sheet = "Tabel 3 - Svangerskabslængde", 
+    col_names = FALSE, skip = 1)
+
+
+```
+
+# Data transformation 
+We conclude that the data is not tidy for R to work with, so we start to make it tidy- We begin with cutting unwanted rows off 
+
+```{r}
+
+Abortdata_kopi %>% slice(2:8) -> Abortdata_kopi
+
+
+```
+
+# The years as columnnames. 
+We use the following function from janitor 
+
+```{r}
+
+Abortdata_kopi %>% row_to_names(row_number = 1) -> Abortdata_kopi
+
+
+```
+
+
+#More changes to the data 
+We make columns with pivotlonger and give them names 
+We convert the datatype into character and the Num_of_abortion into numeric
+Renaming an existing column 
+```{r}
+
+Abortdata_kopi %>% 
+  mutate_if(is.numeric, as.character) %>% 
+  pivot_longer(cols = matches("\\d{4}"),
+               names_to = "Year",
+               values_to = "Num_of_abortion") %>% 
+  rename("Stage" = "År") %>% 
+  mutate(Num_of_abortion = as.numeric(Num_of_abortion))-> Abort_data_tidy
+
+
+
+
+```
+
+Making Stage into a factor, to alter the order 
+
+```{r}
+Abort_data_tidy %>% 
+  count(Stage)
+```
+
+# Creating order within the factor and use of this new factor 
+```{r}
+
+Stage_levels <- c("0-7 fulde uger", "8-11 fulde uger", "12-17 fulde uger", "18-21 fulde uger", "22 fulde uger og derover", "Ukendt")
+
+
+Abort_data_tidy %>% 
+  mutate(Stage = factor(Stage, levels = Stage_levels)) -> Abort_data_tidy
+
+
+
+
+```
+
+#Creating the ggplot, stacked bar plot, from the now tidy data 
+```{r}
+
+ggplot(Abort_data_tidy, aes(fill=Stage, y=Num_of_abortion, x=Year)) + 
+    geom_bar(position="stack", stat="identity")
+
+
+
+```
+
+#Turning the years to make them readable 
+
+```{r}
+
+ggplot(Abort_data_tidy, aes(fill=Stage, y=Num_of_abortion, x=Year)) + 
+    geom_bar(position="stack", stat="identity")+
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
+
+
+
+```
+
+#Making more space between the years, changing the colours and renaming 
+We figured out that we needed to alter the years further, to be able to read it. 
+
+We would also like to change the colours. We wanted to use the same colour package as for the other graphs. 
+
+```{r}
+
+library("wesanderson")
+
+```
+
+
+In this code we include the colourpallette, change the size of the font and rename the y-axis 
+
+```{r}
+
+ggplot(Abort_data_tidy, aes(fill=Stage, y=Num_of_abortion, x=Year)) + 
+    geom_bar(position="stack", stat="identity")+
+    scale_fill_manual(values = wes_palette("IsleofDogs1"))+
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1, size = "6"))+
+    ylab("Number of abortions in intervals")
+    
+  
+
+```
+
+#Changing the names of the intervals in the Stage column to english 
+
+```{r}
+
+ggplot(Abort_data_tidy, aes(fill=Stage, y=Num_of_abortion, x=Year)) + 
+    geom_bar(position="stack", stat="identity")+
+    scale_fill_manual(values = wes_palette("IsleofDogs1"), 
+                      breaks = c("0-7 fulde uger", "8-11 fulde uger", "12-17 fulde uger", "18-21 fulde uger", "22 fulde uger og derover", "Ukendt"),
+                      labels = c("0-7 full weeks", "8-11 full weeks", "12-17 full weeks", "18-21 full weeks", "22 full weeks and over", "Unknown"))+
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1, size = "6"))+
+    ylab("Number of abortions in intervals")
+
+
+
+```
+
+
+
+
