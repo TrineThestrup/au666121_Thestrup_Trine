@@ -1,0 +1,274 @@
+---
+title: "Wrangling abortion data"
+output: html_document
+date: "2023-10-10"
+author: "Trine Thestrup Larsen and Mathilde Halberg Nielsen"
+---
+# Read the packages 
+We installed and loaded the tidyverse package that we already knew beforehand (includes dplyr and ggplot, which we needed) and the readxl package to read our excel file. 
+
+```{r}
+
+library(tidyverse)
+library(readxl)
+
+```
+
+# Loading the data 
+We found the data on Sundhedsdatstyrelsens platform esundhed.dk on abortions. (See link in our assignment) 
+
+```{r}
+
+Abortdata <- read_excel("data/Abortdata.xlsx", 
+    sheet = "Tabel 1 - Antal", col_names = FALSE, 
+    skip = 1)
+
+
+```
+After seeing the format of the data, we realised that the data wasn't tidy for R to read, so we dedided to change and tidy the format. 
+
+# Data transformation
+There were a few unsuable rows in the data, that we not relevant for our case. Therefore we used the function slice to cut these rows away by indicating in the parentheses which rows we wanted to contain. 
+
+```{r}
+
+Abortdata %>% 
+  slice(2:3) -> Abortdata
+
+```
+
+Vi skal have første række til at være kolonne navne. Vi har fundet en pakke der gør det janitor 
+
+```{r}
+
+library(janitor)
+```
+
+```{r}
+
+Abortdata %>%  row_to_names(row_number = 1) -> Abortdata
+
+
+```
+
+Our variables are in columns and we want them to be rows. This is a basic rule for tidy data. Chapter 6 in R4DS. 
+
+Before we could do that, we had to convert all the columns datatype into the same datatype (here is was listed as unknown/double) 
+
+```{r}
+
+Abortdata %>% mutate_if(is.character,as.numeric) -> Abortdata
+
+
+```
+
+Hereafter we wanted to change the format of the dataset, from wide to long. 
+```{r}
+
+Abortdata %>% 
+  pivot_longer(cols = 2:51,
+               names_to = "Year",
+               values_to = "Abortions") %>% 
+  select(-År) -> Abortdata
+
+
+
+```
+
+Here we inspect how our data looks now 
+```{r}
+
+Abortdata
+```
+
+#Make visualization 
+
+We make a ggplot with points and colour. After our first visualization, we discovered that our years on the x-axis we mixed together and not readable, therefore we found a function to turn these (theme - axis 90) and gave the illustration a title 
+```{r}
+
+Abortdata %>% 
+ggplot(aes(x = Year, y = Abortions))+ 
+  geom_point(color = "brown")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))+ 
+  labs(title = "Number of registered abortions between 1973 and 2022")
+
+```
+
+We try to make new colours for the graph. We want to use the same colour scales from the same package, also to avoid the very strong colours that R uses normally. 
+We load the package from the filmic universe of Wes Anderson 
+
+```{r}
+
+options(repos = c(CRAN = "https://cran.r-project.org"))
+
+
+```
+
+
+
+
+```{r}
+
+install.packages("wesanderson")
+
+library(wesanderson)
+
+```
+
+Here we use the fourth colour of the colour package GrandBudapest and adjust the size of the points to make them bigger 
+```{r}
+
+Abortdata %>% 
+ggplot(aes(x = Year, y = Abortions))+ 
+  geom_point(color = wes_palette("GrandBudapest1")[4], size = 2)+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))+ 
+  labs(title = "Number of registered abortions between 1973 and 2022")
+
+
+```
+
+We want to work with a new dataset, which shows the development in the number of women in the danish population from 1973 to 2022 (same years as the other one), so we have the possibility to compare the two and show that there isn't a cohesion. We found it on Danmarks Statistik 
+
+
+# Load data for population growth for women from 1973 to 2022 
+
+We load the data in the same way we did with the other one. 
+```{r}
+
+library(readxl)
+Antal_kvinder <- read_excel("data/Antal_kvinder.xlsx", 
+    sheet = "BEFOLK2", col_names = FALSE, 
+    skip = 1)
+
+
+```
+
+# Data transformation 
+We conclude that this format is also not good to crete visualizations in R with. Vi cut the unwanted rows again. 
+```{r}
+
+Antal_kvinder %>% 
+  slice(2:3) -> Antal_kvinder
+
+
+```
+
+We want the first row to be the column names, so we used the package janitor 
+
+```{r}
+
+Antal_kvinder %>%  row_to_names(row_number = 1) -> Antal_kvinder
+
+
+```
+
+
+Now we want to change the format from wide to long. 
+
+```{r}
+
+Antal_kvinder
+
+Antal_kvinder %>% setNames(paste0("a", names(.))) %>% 
+  pivot_longer(cols = a1973:a2022,
+               names_to = "Year",
+               values_to = "Women") -> Antal_kvinder
+
+```
+We want to remove the a that is before all the years. We are meeting problems by doing it, so we double check what our columns contain. 
+
+```{r}
+
+sum(!complete.cases(Antal_kvinder))
+
+```
+We found out what our problem was. Always remember to assign changes and put them into the dataset. We will now try to remove the a. 
+
+```{r}
+
+Antal_kvinder %>% 
+    mutate(Year = sub("a", "", Year)) -> Antal_kvinder
+
+```
+
+
+It worked to remove the a. We now want to make a visualization 
+We used the same as we did above (point, theme axis, but a new colour blue and another name for the graph)
+
+```{r}
+
+Antal_kvinder %>% 
+  ggplot(aes(x = Year, y = Women))+
+  geom_point(color = "blue")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))+
+  labs(title = "Udvikling af antal kvinder i den danske befolkning 1973-2022") 
+  
+  
+
+```
+We want to make changes in the visualization and make the y-axis more readable and prettier. We want to sum the numbers and make it show every tenth. To be able to do this we found out that we had to use another function, scales (ggplot package)
+
+```{r}
+
+library(scales)
+
+```
+
+After doing that, we want to convert and change the datatype for our column women
+
+```{r}
+
+Antal_kvinder$Women <- as.numeric(Antal_kvinder$Women)
+
+```
+
+Load scales  
+```{r}
+
+library(scales)
+
+```
+
+We now try to make our visualization again, with a new name in english and where we use the scales function 
+```{r}
+
+Antal_kvinder %>% 
+  ggplot(aes(x = Year, y = Women))+
+  geom_point(color = "blue")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))+
+  labs(title = "Development in number of women in the danish population from 1973-2022")+ 
+  scale_y_continuous(labels = label_scientific())
+
+
+```
+We now got what we wanted, but we would like to remove the e + 06 (a mathematical term) from the numbers on the y-axis to make it more accessible and readable as mentioned above. 
+
+```{r}
+
+Antal_kvinder %>% 
+  ggplot(aes(x = Year, y = Women))+
+  geom_point(color = "blue")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))+
+  labs(title = "Development in number of women from 1973-2022")+ 
+  scale_y_continuous(labels = scales::comma)
+
+
+```
+
+This worked as well, the numbers are now as we would like them, in millions clearly. 
+
+But we also want to change the colour here to make it a part of the same colour universe we used before (Wes Anderson). We choose the another colour scale, select the 3 colour of it and adjust the sice of the points to 2. 
+```{r}
+
+Antal_kvinder %>% 
+  ggplot(aes(x = Year, y = Women))+
+  geom_point(color = wes_palette("Moonrise3")[3], size = 2)+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))+
+  labs(title = "Development in number of women from 1973-2022")+ 
+  scale_y_continuous(labels = scales::comma)
+
+
+
+```
+
+
